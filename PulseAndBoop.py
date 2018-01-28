@@ -8,7 +8,6 @@ def randColor():
 
 
 def pulseAll():
-    print("MAX:%05d PULSE"%(max_peak))
     for light in lightArray:
         path = basePath+"lights/"+str(light)+"/state"
         dataString = '{"on":true, "transition_time":1, "bri":'+str(brightness)+',"sat":254,"hue":'+randColor()+' }'
@@ -19,6 +18,28 @@ def pulseAll():
         path = basePath+"lights/"+str(light)+"/state"
         dataString = '{"transition_time":1, "bri":'+str(brightness-100)+',"sat":254}'
         requests.put(path,data=dataString)
+
+def pulseEnds():
+    
+    path = basePath+"lights/"+str(lightArray[0])+"/state"
+    dataString = '{"on":true, "transition_time":1, "bri":'+str(brightness)+',"sat":254,"hue":'+randColor()+' }'
+    requests.put(path,data=dataString)
+    # time.sleep(1)
+    time.sleep(.15)
+    path = basePath+"lights/"+str(lightArray[0])+"/state"
+    dataString = '{"transition_time":1, "bri":'+str(low_bright)+',"sat":254}'
+    requests.put(path,data=dataString)
+
+    path = basePath+"lights/"+str(lightArray[-1])+"/state"
+    dataString = '{"on":true, "transition_time":1, "bri":'+str(brightness)+',"sat":254,"hue":'+randColor()+' }'
+    requests.put(path,data=dataString)
+    # time.sleep(1)
+    time.sleep(.15)
+    path = basePath+"lights/"+str(lightArray[-1])+"/state"
+    dataString = '{"transition_time":1, "bri":'+str(low_bright)+',"sat":254}'
+    requests.put(path,data=dataString)
+
+
 
 def pulseRandom(num=1):
     lights=[]
@@ -33,7 +54,7 @@ def pulseRandom(num=1):
     time.sleep(.15)
     for light in lights:
         path = basePath+"lights/"+str(light)+"/state"
-        dataString = '{"transition_time":1, "bri":'+str(brightness-100)+',"sat":254}'
+        dataString = '{"transition_time":1, "bri":'+str(low_bright)+',"sat":254}'
         requests.put(path,data=dataString)
 
 
@@ -45,12 +66,14 @@ def pulseOne():
     
     time.sleep(.15)
     path = basePath+"lights/"+str(light)+"/state"
-    dataString = '{"transition_time":1, "bri":'+str(brightness-100)+',"sat":254}'
+    dataString = '{"transition_time":1, "bri":'+str(low_bright)+',"sat":254}'
     requests.put(path,data=dataString)
 
 
 min_peak_threshold=3000
-brightness=150
+brightness=200
+low_bright=50
+chill_threshold=.25
 
 CHUNK = 2**11
 RATE = 44100
@@ -70,19 +93,24 @@ oldpeak=0
 peak=0
 lastTriggered = datetime.datetime.now()
 time.sleep(.5)
+max_buffer_counter=0
 while True:
     data = np.fromstring(stream.read(CHUNK),dtype=np.int16)
     peak=np.average(np.abs(data))*2
     
-    if (peak >= max_peak) or ((datetime.datetime.now() - max_peak_time) > datetime.timedelta(minutes=5)):
-        print("new max:", max_peak)
-        max_peak = peak
-        max_peak_time = datetime.datetime.now()
-        min_peak_threshold= max_peak/10
+    if (peak >= max_peak) or ((datetime.datetime.now() - max_peak_time) > datetime.timedelta(seconds=30)):
+        if max_buffer_counter>2:
+            max_peak = peak
+            max_peak_time = datetime.datetime.now()
+            min_peak_threshold= max_peak/10
+            max_buffer_counter=0
+            print("                                                     NEWMAX")
+        else:
+            max_buffer_counter+=1
     currentTrigger = datetime.datetime.now()
         
     if (oldpeak+ min_peak_threshold*5 ) < peak or (oldoldpeak+min_peak_threshold*5 ) < peak:
-        if ((currentTrigger - lastTriggered) > datetime.timedelta(seconds=.5)):
+        if ((currentTrigger - lastTriggered) > datetime.timedelta(seconds=chill_threshold)):
             lastTriggered=currentTrigger
             pulseAll()
             # pulseRandom()
@@ -91,16 +119,16 @@ while True:
             print("Chill")
 
     elif (oldpeak+ min_peak_threshold*3 ) < peak or (oldoldpeak+min_peak_threshold*3 ) < peak:
-        if ((currentTrigger - lastTriggered) > datetime.timedelta(seconds=.5)):
+        if ((currentTrigger - lastTriggered) > datetime.timedelta(seconds=chill_threshold)):
             lastTriggered=currentTrigger
             # pulseRandom(2)
-            pulseOne()
+            pulseEnds()
             print("30%+")
         else:
             print("Chill")
 
     elif (oldpeak+ min_peak_threshold ) < peak or (oldoldpeak+min_peak_threshold ) < peak:
-        if ((currentTrigger - lastTriggered) > datetime.timedelta(seconds=.5)):
+        if ((currentTrigger - lastTriggered) > datetime.timedelta(seconds=chill_threshold)):
             lastTriggered=currentTrigger
             # pulseAll()
             # pulseRandom()
