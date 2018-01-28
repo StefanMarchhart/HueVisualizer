@@ -1,32 +1,28 @@
 import pyaudio
 import numpy as np
-from datetime import datetime as dt
+import datetime
 import time, random, requests
-
-rateLimiting=False
 
 def randColor():
     return str(random.randint(0,65535))
 
 
 def pulseAll():
-    rateLimiting=True
     print("PULSE")
     for light in lightArray:
         path = basePath+"lights/"+str(light)+"/state"
-        dataString = '{"on":true, "transition_time":1, "bri":'+brightness+',"sat":254,"hue":'+randColor()+' }'
+        dataString = '{"on":true, "transition_time":1, "bri":'+str(brightness)+',"sat":254,"hue":'+randColor()+' }'
         requests.put(path,data=dataString)
         # time.sleep(1)
     time.sleep(.15)
     for light in lightArray:
         path = basePath+"lights/"+str(light)+"/state"
-        dataString = '{"on":false, "transition_time":1, "bri":'+brightness+',"sat":254}'
+        dataString = '{"transition_time":1, "bri":'+str(brightness-100)+',"sat":254}'
         requests.put(path,data=dataString)
-    rateLimiting=False
 
 
 peakdelta=3000
-brightness="100"
+brightness=150
 
 CHUNK = 2**11
 RATE = 44100
@@ -41,17 +37,25 @@ stream=p.open(format=pyaudio.paInt16,channels=1,rate=RATE,input=True,
 oldoldpeak=0
 oldpeak=0
 peak=0
+lastTriggered = datetime.datetime.now()
+time.sleep(.5)
 while True:
     data = np.fromstring(stream.read(CHUNK),dtype=np.int16)
     peak=np.average(np.abs(data))*2
+    currentTrigger = datetime.datetime.now()
+        
     if (oldpeak+peakdelta ) < peak or (oldoldpeak+peakdelta ) < peak:
-        if not rateLimiting:
+        if ((currentTrigger - lastTriggered) > datetime.timedelta(seconds=.5)):
+            lastTriggered=currentTrigger
             pulseAll()
         else:
-            print("RATELIMITED")
-    
+            print("Chill")
+
     bars="#"*int(200*peak/2**16)
     print(" %05d %s"%(peak,bars))
+    
+
+
     oldoldpeak=oldpeak
     oldpeak=peak
     
