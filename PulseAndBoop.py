@@ -146,7 +146,7 @@ def main():
         oldpeak = peak
         time.sleep(.1)
 
-    #gracefully kill stream
+    
     stream.stop_stream()
     stream.close()
     p.terminate()
