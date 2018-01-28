@@ -21,11 +21,14 @@ def pulseAll():
         requests.put(path,data=dataString)
 
 
-peakdelta=3000
+min_peak_threshold=3000
 brightness=150
 
 CHUNK = 2**11
 RATE = 44100
+max_peak=0
+max_peak_time=datetime.datetime.now()
+
 
 basePath = r"http://192.168.1.135/api/xREOsUlYetInkIHuxDldgzqJYLZySU6xDIaobRsx/"
 lightArray=[6,1,3,2,4]
@@ -42,9 +45,15 @@ time.sleep(.5)
 while True:
     data = np.fromstring(stream.read(CHUNK),dtype=np.int16)
     peak=np.average(np.abs(data))*2
+    
+    if (peak >= max_peak) or ((datetime.datetime.now() - max_peak_time) > datetime.timedelta(minutes=5)):
+        print("new max:", max_peak)
+        max_peak = peak
+        max_peak_time = datetime.datetime.now()
+        min_peak_threshold= max_peak/5
     currentTrigger = datetime.datetime.now()
         
-    if (oldpeak+peakdelta ) < peak or (oldoldpeak+peakdelta ) < peak:
+    if (oldpeak+ min_peak_threshold ) < peak or (oldoldpeak+min_peak_threshold ) < peak:
         if ((currentTrigger - lastTriggered) > datetime.timedelta(seconds=.5)):
             lastTriggered=currentTrigger
             pulseAll()
@@ -53,12 +62,10 @@ while True:
 
     bars="#"*int(200*peak/2**16)
     print(" %05d %s"%(peak,bars))
-    
-
 
     oldoldpeak=oldpeak
     oldpeak=peak
-    
+    time.sleep(.1)
 
 stream.stop_stream()
 stream.close()
